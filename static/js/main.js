@@ -1,5 +1,9 @@
 // main.js - Client-Side Logic for Functional Scriptoria
 
+// 0. AUTH STATE
+let currentUser = null;
+let sidebarOpen = false;
+
 // 1. GLOBAL STATE ENGINE
 const appState = {
     idea: "",
@@ -11,8 +15,17 @@ const appState = {
     characters: null,
     soundPlan: null,
     productionPlan: null,
+    projectId: null,
     isDirty: false
 };
+
+// Global flags to prevent ReferenceErrors
+let isGenerating = false;
+let isOrchestrating = false;
+let isFetchingHistory = false;
+let isSidebarLoading = false;
+let currentHistoryList = [];
+let sidebarHistoryData = [];
 
 // UI Elements
 const els = {
@@ -33,19 +46,263 @@ const els = {
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Scriptoria AI Orchestration Engine (Fully Functional) Initialized.");
+    checkAuth();
     bindEvents();
 });
+
+// ═══════════════════════════════════════════
+// AUTH & SIDEBAR FUNCTIONS
+// ═══════════════════════════════════════════
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+            const data = await res.json();
+            currentUser = data.user;
+            showAuthUI();
+            fetchSidebarHistory();
+        }
+        // If not logged in, page still works (hero, info sections visible)
+        // Auth is only required for generation/history features
+    } catch (e) {
+        console.log("Auth check skipped:", e);
+    }
+}
+
+function showAuthUI() {
+    if (!currentUser) return;
+
+    // Hide guest nav
+    const guestInfo = document.getElementById('nav-guest-info');
+    if (guestInfo) guestInfo.classList.add('hidden');
+
+    // Navbar user info
+    const navInfo = document.getElementById('nav-user-info');
+    const navName = document.getElementById('nav-user-name');
+    const navInitial = document.getElementById('nav-user-initial');
+
+    if (navInfo) {
+        navInfo.classList.remove('hidden');
+        navInfo.classList.add('flex');
+    }
+    if (navName) navName.textContent = currentUser.display_name;
+    if (navInitial) navInitial.textContent = currentUser.display_name.charAt(0).toUpperCase();
+
+    // Sidebar user name
+    const sidebarName = document.getElementById('sidebar-user-name');
+    if (sidebarName) sidebarName.textContent = currentUser.display_name;
+}
+
+function handleStartCreating() {
+    if (currentUser) {
+        window.location.href = '/dashboard';
+    } else {
+        // Scroll to demo if guest, or redirect to login? 
+        // User said "entry login thing is not upto the point" 
+        // Let's redirect to login to make it "crisp" and force them into the ecosystem
+        window.location.href = '/login';
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (!sidebar) return;
+
+    sidebarOpen = !sidebarOpen;
+    if (sidebarOpen) {
+        sidebar.classList.remove('-translate-x-full');
+        overlay.classList.remove('hidden');
+    } else {
+        sidebar.classList.add('-translate-x-full');
+        overlay.classList.add('hidden');
+    }
+}
+
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+        window.location.href = '/login';
+    } catch (e) {
+        console.error("Logout error:", e);
+    }
+}
+
+function startNewScreenplay() {
+    // Clear state and reset UI
+    appState.idea = "";
+    appState.screenplay = null;
+    appState.metadata = null;
+    appState.characters = null;
+    appState.soundPlan = null;
+    appState.productionPlan = null;
+    appState.isDirty = false;
+
+    if (els.ideaInput) els.ideaInput.value = "";
+
+    const placeholder = document.getElementById('screenplay-placeholder');
+    const container = document.getElementById('screenplay-container');
+    const outText = document.getElementById('screenplay-text');
+
+    if (placeholder) { placeholder.classList.remove('hidden', 'opacity-0'); }
+    if (container) { container.classList.add('hidden'); }
+    if (outText) { outText.innerHTML = ""; }
+
+    // Reset secondary tabs
+    document.getElementById('characters-out').innerHTML = '<p class="text-center text-gray-500 p-10">Generate a screenplay first.</p>';
+    document.getElementById('sound-out').innerHTML = '<p class="text-center text-gray-500 p-10">Generate a screenplay first.</p>';
+    document.getElementById('production-out').innerHTML = '<p class="text-center text-gray-500 p-10">Generate a screenplay first.</p>';
+
+    // Switch to screenplay tab
+    const screenplayTab = document.querySelector('[data-target="screenplay-out"]');
+    if (screenplayTab) screenplayTab.click();
+
+    // Close sidebar on mobile
+    if (sidebarOpen) toggleSidebar();
+
+    // Scroll to studio
+    scrollToDemo();
+    showToast("Ready", "New screenplay canvas ready.", false);
+}
+
+
+// 2. SIDEBAR HISTORY
+
+async function fetchSidebarHistory() {
+    if (isSidebarLoading) return;
+    const loading = document.getElementById('sidebar-history-loading');
+    const empty = document.getElementById('sidebar-history-empty');
+    const list = document.getElementById('sidebar-history-list');
+    if (!loading || !list) return;
+
+    isSidebarLoading = true;
+    loading.classList.remove('hidden');
+    empty.classList.add('hidden');
+    list.innerHTML = '';
+
+    try {
+        const res = await fetch('/api/history');
+        if (res.status === 401) {
+            loading.classList.add('hidden');
+            empty.classList.remove('hidden');
+            empty.textContent = "Sign in to see history.";
+            return;
+        }
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "Failed to fetch history");
+
+        sidebarHistoryData = data.history || [];
+
+        if (sidebarHistoryData.length === 0) {
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        sidebarHistoryData.forEach(item => {
+            const date = new Date(item.created_at);
+            const timeStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' · ' + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+            const div = document.createElement('div');
+            div.className = 'sidebar-history-item group px-3 py-2.5 rounded-lg cursor-pointer hover:bg-gray-800/60 transition-all';
+            div.onclick = (e) => {
+                e.preventDefault();
+                loadFromSidebar(item.id);
+            };
+            div.innerHTML = `
+                <p class="text-xs text-gray-300 font-medium truncate group-hover:text-cinematic-neon transition">${item.title}</p>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-[10px] text-gray-600 font-mono">${item.tone}</span>
+                    <span class="text-[10px] text-gray-700">·</span>
+                    <span class="text-[10px] text-gray-600">${timeStr}</span>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+
+    } catch (e) {
+        console.error("Sidebar history error:", e);
+        empty.classList.remove('hidden');
+        empty.textContent = "Error: " + e.message;
+    } finally {
+        isSidebarLoading = false;
+        loading.classList.add('hidden');
+    }
+}
+
+let isLoadingFromSidebar = false;
+
+async function loadFromSidebar(id) {
+    if (isGenerating || isOrchestrating || isLoadingFromSidebar) {
+        showToast("Wait", "System busy. Please wait.", true);
+        return;
+    }
+
+    isLoadingFromSidebar = true;
+    showToast("Loading", "Retrieving project...", false);
+
+    try {
+        const res = await fetch(`/api/history/${id}`);
+        if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "Failed to load screenplay.");
+        }
+        const item = await res.json();
+
+        // Set state
+        appState.idea = item.idea;
+        appState.tone = item.tone;
+        appState.intensity = item.intensity;
+        appState.screenplay = item.screenplay_text;
+        appState.metadata = null;
+        appState.characters = null;
+        appState.soundPlan = null;
+        appState.productionPlan = null;
+        appState.isDirty = false;
+
+        // Update UI
+        if (els.ideaInput) els.ideaInput.value = item.idea;
+
+        const outText = document.getElementById('screenplay-text');
+        const container = document.getElementById('screenplay-container');
+        const placeholder = document.getElementById('screenplay-placeholder');
+
+        if (outText) outText.innerHTML = item.screenplay_text;
+        if (placeholder) placeholder.classList.add('hidden');
+        if (container) container.classList.remove('hidden');
+
+        updateScreenplayTabUI();
+
+        // Switch to screenplay tab
+        const screenplayTab = document.querySelector('[data-target="screenplay-out"]');
+        if (screenplayTab) screenplayTab.click();
+
+        // Close sidebar  
+        if (sidebarOpen) toggleSidebar();
+
+        // Scroll to studio
+        scrollToDemo();
+        showToast("Loaded", "Screenplay loaded from history.", false);
+
+    } catch (e) {
+        showToast("Error", e.message, true);
+    } finally {
+        isLoadingFromSidebar = false;
+    }
+}
 
 // 2. EVENT BINDING
 function bindEvents() {
     if (els.ideaInput) {
-        els.ideaInput.addEventListener('input', () => {
+        els.ideaInput.addEventListener('input', (e) => {
+            appState.idea = e.target.value.trim();
             appState.isDirty = true;
             updateScreenplayTabUI();
         });
     }
 
-    // Tab Switching
+    // Tab Switching — tabs ONLY switch views, never trigger generation
     els.tabs.forEach(btn => {
         btn.addEventListener('click', () => {
             els.tabs.forEach(b => b.classList.remove('active', 'border-cinematic-neon', 'text-cinematic-neon', 'bg-cinematic-neon/5'));
@@ -53,21 +310,6 @@ function bindEvents() {
 
             btn.classList.add('active', 'border-cinematic-neon', 'text-cinematic-neon', 'bg-cinematic-neon/5');
             const targetId = btn.getAttribute('data-target');
-
-            if (btn.id === 'regenerate-screenplay-btn' && appState.isDirty && appState.screenplay) {
-                appState.screenplay = null;
-                appState.characters = null;
-                appState.soundPlan = null;
-                appState.productionPlan = null;
-                appState.metadata = null;
-
-                document.getElementById('screenplay-text').innerHTML = "";
-                document.getElementById('characters-out').innerHTML = resetTabUI("🧠", "Psychological profiles will generate automatically.");
-                document.getElementById('sound-out').innerHTML = resetTabUI("🎵", "Layered scene audio design will compile here.");
-                document.getElementById('production-out').innerHTML = resetTabUI("🎬", "Visual breakdown (runtime, cast sizes) will load here.");
-
-                generateStreamingScript();
-            }
 
             const targetContent = document.getElementById(targetId);
             targetContent.classList.add('active');
@@ -97,6 +339,7 @@ function bindEvents() {
             target.classList.add('active', 'border-cinematic-accent', 'bg-cinematic-accent/10', 'text-white');
 
             appState.tone = target.getAttribute('data-tone');
+            appState.idea = els.ideaInput.value.trim(); // Ensure idea is captured
             console.log("Tone updated:", appState.tone);
             appState.isDirty = true;
             updateScreenplayTabUI();
@@ -116,17 +359,22 @@ function bindEvents() {
             updateScreenplayTabUI();
         });
     }
+
+    // Length Selector
+    const lengthSelect = document.getElementById('lengthSelect');
+    if (lengthSelect) {
+        lengthSelect.addEventListener('change', () => {
+            appState.isDirty = true;
+            updateScreenplayTabUI();
+        });
+    }
 }
 
 function updateScreenplayTabUI() {
+    // Tab label always stays "Screenplay" — regeneration is via the dedicated button
     const tabText = document.getElementById('screenplay-tab-text');
     if (!tabText) return;
-
-    if (appState.screenplay && appState.screenplay.length > 0) {
-        tabText.innerHTML = "↻ Regenerate Screenplay";
-    } else {
-        tabText.innerHTML = "Screenplay";
-    }
+    tabText.innerHTML = "Screenplay";
 }
 
 function updateSliderFill(slider) {
@@ -178,8 +426,10 @@ function showToast(title, message, isError = false) {
 
 // 3. SECONDARY ENGINE ORCHESTRATOR
 async function generateSecondaryEngines() {
+    if (isOrchestrating) return; // Prevent double-click
+
     // If not in state, attempt to pull from UI if stream finished
-    const scriptElem = document.getElementById('typewriter-area');
+    const scriptElem = document.getElementById('screenplay-text');
     if (!appState.screenplay && scriptElem && scriptElem.innerText.trim().length > 0) {
         appState.screenplay = scriptElem.innerText.trim();
     }
@@ -193,10 +443,12 @@ async function generateSecondaryEngines() {
         appState.idea = els.ideaInput.value.trim() || "A cinematic masterclass in storytelling.";
     }
 
+    isOrchestrating = true;
+
     // Reset Output UI
     document.getElementById('characters-out').innerHTML = resetTabUI("🧠", "Analyzing Script...");
     document.getElementById('sound-out').innerHTML = resetTabUI("🎵", "Analyzing Script...");
-    document.getElementById('production-out').innerHTML = resetTabUI("🎬", "Analyzing Script...");
+    document.getElementById('production-out').innerHTML = '<div class="flex flex-col items-center justify-center py-16 text-gray-500"><span class="text-4xl mb-3">🎬</span><p class="text-sm">Click the <strong>Planner</strong> tab to generate the production plan.</p></div>';
 
     els.generateBtn.disabled = true;
     els.generateBtn.innerHTML = `<span class="animate-pulse">🧠 Orchestrating Engines...</span>`;
@@ -204,20 +456,19 @@ async function generateSecondaryEngines() {
     els.statusText.classList.add('text-cinematic-accent');
 
     try {
-        await extractMetadata();
-        els.statusText.innerText = "Status: Spawning Secondary Engines...";
+        const meta = await extractMetadata(appState.screenplay, appState.projectId);
+        appState.metadata = meta;
+        els.statusText.innerText = "Status: Generating Characters...";
 
-        // Auto trigger secondary engines concurrently
-        await Promise.all([
-            generateCharacters(),
-            generateSound(),
-            generateProduction()
-        ]);
+        // SEQUENTIAL calls to avoid Groq 429 rate limits
+        await generateCharacters(appState.idea, appState.screenplay, appState.tone, appState.intensity, meta, appState.projectId);
+        els.statusText.innerText = "Status: Generating Sound Design...";
+        await generateSound(appState.idea, appState.screenplay, appState.tone, appState.intensity, meta, appState.projectId);
 
-        els.statusText.innerText = "Status: Production Plan Complete.";
+        els.statusText.innerText = "Status: Characters & Sound Complete. Click Planner for Production Plan.";
         els.statusText.classList.remove('text-cinematic-accent');
         els.statusText.classList.add('text-cinematic-neon');
-        showToast("Success", "Secondary tools generated successfully.", false);
+        showToast("Success", "Characters & Sound generated. Click Planner tab for Production Plan.", false);
 
         // Auto-switch to Character Lab tab to show the user the new data
         const charTab = document.querySelector('[data-target="characters-out"]');
@@ -227,6 +478,7 @@ async function generateSecondaryEngines() {
         els.statusText.innerText = "Error: " + err.message;
         showToast("Error", "Generation failed. " + err.message, true);
     } finally {
+        isOrchestrating = false;
         els.generateBtn.disabled = false;
         els.generateBtn.innerHTML = `🎬 Generate Production Plan`;
     }
@@ -256,35 +508,158 @@ function typeWriter(text, elementId, speed) {
     type();
 }
 
+// --- NEW MODAL & REGENERATE LOGIC ---
+async function fetchHistory() {
+    if (isFetchingHistory) return;
+    const loading = document.getElementById('history-loading');
+    const empty = document.getElementById('history-empty');
+    const list = document.getElementById('history-list');
+
+    isFetchingHistory = true;
+    loading.classList.remove('hidden');
+    empty.classList.add('hidden');
+    list.innerHTML = '';
+
+    try {
+        const res = await fetch('/api/screenplay-history');
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "Failed to fetch history");
+
+        currentHistoryList = data.history || [];
+
+        if (currentHistoryList.length === 0) {
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        currentHistoryList.forEach(item => {
+            const date = new Date(item.created_at).toLocaleString();
+            const div = document.createElement('div');
+            div.className = "flex flex-col sm:flex-row gap-4 p-4 border border-gray-800 bg-gray-900/50 rounded-xl hover:border-cinematic-neon/50 transition items-start sm:items-center justify-between";
+            div.innerHTML = `
+                <div class="flex-grow">
+                    <h4 class="text-cinematic-neon text-sm font-bold uppercase tracking-wider mb-1 line-clamp-1">${item.idea}</h4>
+                    <p class="text-xs text-gray-400 mb-2 italic line-clamp-2">"${item.preview}"</p>
+                    <div class="flex gap-3 text-[10px] text-gray-500 font-mono uppercase">
+                        <span class="bg-gray-800 px-2 py-1 rounded border border-gray-700">${item.tone}</span>
+                        <span class="bg-gray-800 px-2 py-1 rounded border border-gray-700">Int: ${item.intensity}%</span>
+                        <span class="px-2 py-1">${date}</span>
+                    </div>
+                </div>
+                <button onclick="loadPastScreenplay(${item.id})" class="shrink-0 px-4 py-2 bg-gray-800 hover:bg-cinematic-neon hover:text-black rounded text-white text-xs font-bold transition">Load &rarr;</button>
+            `;
+            list.appendChild(div);
+        });
+
+    } catch (e) {
+        console.error("History fetch error:", e);
+        empty.classList.remove('hidden');
+        empty.innerText = "Error: " + e.message;
+    } finally {
+        isFetchingHistory = false;
+        loading.classList.add('hidden');
+    }
+}
+
+function loadPastScreenplay(id) {
+    const item = currentHistoryList.find(x => x.id === id);
+    if (!item) return;
+
+    if (isGenerating) {
+        showToast("Wait", "Cannot load while generating.", true);
+        return;
+    }
+
+    // Set UI globals
+    appState.idea = item.idea;
+    appState.tone = item.tone;
+    appState.intensity = item.intensity;
+    appState.screenplay = item.screenplay_text;
+
+    // Fill text area
+    const outText = document.getElementById('screenplay-text');
+    const container = document.getElementById('screenplay-container');
+    const placeholder = document.getElementById('screenplay-placeholder');
+
+    outText.innerHTML = item.screenplay_text;
+    placeholder.classList.add('hidden');
+    container.classList.remove('hidden');
+    appState.isDirty = false;
+
+    updateScreenplayTabUI();
+    closeHistoryModal();
+    showToast("Loaded", "Archive retrieved successfully.", false);
+}
+
+function regenerateScreenplay() {
+    if (isGenerating) return;
+    if (!appState.idea) {
+        showToast("Error", "No original idea found to regenerate from.", true);
+        return;
+    }
+
+    // Clear stale secondary data — a fresh screenplay needs fresh analysis
+    appState.metadata = null;
+    appState.characters = null;
+    appState.soundPlan = null;
+    appState.productionPlan = null;
+
+    const uiBtn = document.getElementById('regenerate-btn-ui');
+    const originalText = uiBtn.innerHTML;
+
+    uiBtn.innerHTML = '<div class="w-4 h-4 rounded-full border-t-2 border-cinematic-neon animate-spin inline-block"></div> Regenerating...';
+    uiBtn.classList.add('opacity-50', 'pointer-events-none');
+
+    generateStreamingScript().finally(() => {
+        uiBtn.innerHTML = originalText;
+        uiBtn.classList.remove('opacity-50', 'pointer-events-none');
+    });
+}
+
 async function generateStreamingScript() {
-    const promptValue = els.ideaInput.value.trim();
+    if (isGenerating) return;
+
+    const promptValue = appState.idea || els.ideaInput.value.trim();
     if (!promptValue) {
         showToast("Missing Idea", "Please enter a logline or concept in the Spark section.", true);
         return;
     }
 
+    isGenerating = true;
+
     const btn = document.getElementById('generate-master-btn');
     const placeholder = document.getElementById('screenplay-placeholder');
+    const container = document.getElementById('screenplay-container');
     const outText = document.getElementById('screenplay-text');
 
     // UI Locking
-    btn.disabled = true;
-    btn.innerHTML = `<span class="animate-spin inline-block mr-2">⚙️</span> Connecting Neural Engine...`;
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin inline-block mr-2">⚙️</span> Connecting Neural Engine...`;
+    }
 
     // Reveal text area
-    placeholder.classList.add('opacity-0');
-    setTimeout(() => {
-        placeholder.classList.add('hidden');
-        outText.classList.remove('hidden');
-    }, 300);
+    if (placeholder) {
+        placeholder.classList.add('opacity-0');
+        setTimeout(() => {
+            placeholder.classList.add('hidden');
+            if (container) container.classList.remove('hidden');
+        }, 300);
+    } else {
+        if (container) container.classList.remove('hidden');
+    }
 
     outText.innerHTML = "Establishing cinematic stream...\n\n";
 
     try {
+        const lengthSelect = document.getElementById('lengthSelect');
+        const lengthVal = lengthSelect ? lengthSelect.value : "Medium";
         const payload = {
             idea: promptValue,
             tone: appState.tone,
             intensity: appState.intensity,
+            length: lengthVal,
             seed: Math.random()
         };
 
@@ -320,12 +695,27 @@ async function generateStreamingScript() {
                     try {
                         const data = JSON.parse(dataStr);
                         if (data.status === 'DONE') {
-                            // Finished
+                            // Finished — capture final screenplay text
                             appState.screenplay = outText.innerText;
                             appState.idea = promptValue;
                             appState.isDirty = false;
+
+                            // Clear stale secondary data so Production Plan runs fresh
+                            appState.metadata = null;
+                            appState.characters = null;
+                            appState.soundPlan = null;
+                            appState.productionPlan = null;
+
+                            if (data.project_id) {
+                                appState.projectId = data.project_id;
+                                console.log("DIAGNOSTIC - Saved project ID:", appState.projectId);
+                            }
+
                             updateScreenplayTabUI();
                             showToast("Success", "Master Screenplay streaming complete.", false);
+
+                            // Refresh sidebar history to show the new entry
+                            if (currentUser) fetchSidebarHistory();
 
                             // Cinematic Completion Glow Pulse
                             if (typeof gsap !== "undefined") {
@@ -353,59 +743,189 @@ async function generateStreamingScript() {
         outText.innerHTML += `\n\n[CONNECTION FAILED]: ${err.message}`;
         showToast("Error", err.message, true);
     } finally {
+        isGenerating = false;
         // Unlock UI
-        btn.disabled = false;
-        btn.innerHTML = `✨ Generate Master Screenplay`;
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `✨ Generate Master Screenplay`;
+        }
     }
 }
 
 // 4. SECONDARY GENERATIONS (Characters, Sound, Production)
 
-async function extractMetadata() {
-    if (!appState.screenplay) return;
+async function extractMetadata(script, projectId = null) {
     try {
         const res = await fetch('/api/generate/metadata', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ script: appState.screenplay })
+            body: JSON.stringify({ script, project_id: projectId })
         });
         const data = await res.json();
-        if (res.ok) {
-            appState.metadata = data.metadata;
-        }
-    } catch (e) { console.error("Metadata error", e); }
+        return data.metadata || {};
+    } catch (e) { return {}; }
 }
 
-async function generateCharacters() {
-    if (!appState.screenplay) return;
+async function generateCharacters(idea, script, tone, intensity, metadata, projectId = null) {
     try {
         const res = await fetch('/api/generate/characters', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idea: appState.idea, script: appState.screenplay, tone: appState.tone, intensity: appState.intensity, metadata: appState.metadata })
+            body: JSON.stringify({ idea, script, tone, intensity, metadata, project_id: projectId })
         });
         const data = await res.json();
         if (res.ok) {
             appState.characters = data.characters;
             renderCharacters();
+        } else {
+            console.warn("Character API error:", data.error);
+            document.getElementById('characters-out').innerHTML = `<div class="flex flex-col items-center justify-center h-full text-red-400 p-10"><span class="text-4xl mb-3">⚠️</span><p class="text-sm">Character generation failed: ${data.error || 'Unknown error'}. Try again.</p></div>`;
         }
-    } catch (e) { console.error("Char error", e); }
+    } catch (e) {
+        console.error("Char error", e);
+        document.getElementById('characters-out').innerHTML = `<div class="flex flex-col items-center justify-center h-full text-red-400 p-10"><span class="text-4xl mb-3">⚠️</span><p class="text-sm">Character generation failed. Check your connection.</p></div>`;
+    }
 }
 
-async function generateSound() {
-    if (!appState.screenplay) return;
+async function generateSound(idea, script, tone, intensity, metadata, projectId = null) {
     try {
         const res = await fetch('/api/generate/sound', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idea: appState.idea, script: appState.screenplay, tone: appState.tone, intensity: appState.intensity, metadata: appState.metadata })
+            body: JSON.stringify({ idea, script, tone, intensity, metadata, project_id: projectId })
         });
         const data = await res.json();
         if (res.ok) {
             appState.soundPlan = data.sound;
             renderSound();
+        } else {
+            console.warn("Sound API error:", data.error);
+            document.getElementById('sound-out').innerHTML = `<div class="flex flex-col items-center justify-center h-full text-red-400 p-10"><span class="text-4xl mb-3">⚠️</span><p class="text-sm">Sound generation failed: ${data.error || 'Unknown error'}. Try again.</p></div>`;
         }
-    } catch (e) { console.error("Sound error", e); }
+    } catch (e) {
+        console.error("Sound error", e);
+        document.getElementById('sound-out').innerHTML = `<div class="flex flex-col items-center justify-center h-full text-red-400 p-10"><span class="text-4xl mb-3">⚠️</span><p class="text-sm">Sound generation failed. Check your connection.</p></div>`;
+    }
+}
+
+async function generateSecondaryEngines() {
+    if (!appState.screenplay) {
+        showToast("Error", "Please generate a screenplay first.", true);
+        return;
+    }
+
+    const btn = document.getElementById('generateBtn');
+    const statusText = document.getElementById('statusText');
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin inline-block mr-2">⚙️</span> Orchestrating...`;
+    }
+
+    try {
+        if (statusText) statusText.textContent = "Status: Analyzing script metadata...";
+        // 1. Metadata extraction
+        const meta = await extractMetadata(appState.screenplay, appState.projectId);
+        appState.metadata = meta;
+
+        if (statusText) statusText.textContent = "Status: Generating secondary blueprints...";
+        // 2. Parallel Generation (Characters, Sound, and Production)
+        await Promise.all([
+            generateCharacters(appState.idea, appState.screenplay, appState.tone, appState.intensity, meta, appState.projectId),
+            generateSound(appState.idea, appState.screenplay, appState.tone, appState.intensity, meta, appState.projectId),
+            generateProduction(appState.idea, appState.screenplay, appState.tone, appState.intensity, meta, appState.projectId)
+        ]);
+
+        if (statusText) statusText.textContent = "Status: All blueprints synchronized.";
+        showToast("Success", "Full production suite generated successfully.", false);
+    } catch (e) {
+        console.error("Secondary engine generation failed:", e);
+        showToast("Orchestration Error", "Failed to compile full suite.", true);
+        if (statusText) statusText.textContent = "Status: Orchestration failed.";
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `<span>🎬</span> Generate Production Plan`;
+        }
+    }
+}
+
+async function generateProduction(idea, script, tone, intensity, metadata, projectId = null) {
+    try {
+        const res = await fetch('/api/generate/production', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idea, script, tone, intensity, metadata, project_id: projectId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            appState.productionPlan = data.production;
+            renderProduction();
+        } else {
+            console.warn("Production API error:", data.error);
+        }
+    } catch (e) {
+        console.error("Production error", e);
+    }
+}
+
+async function generateDirectProduction() {
+    const editorEl = document.getElementById('screenplay-text');
+    let scriptText = "";
+    if (editorEl) {
+        scriptText = editorEl.innerText || editorEl.value || "";
+    }
+
+    if (!scriptText || scriptText.length < 300) {
+        showToast("Error", "Please generate or paste a screenplay of at least 300 characters in the editor first.", true);
+        return;
+    }
+
+    const btn = document.getElementById('direct-production-btn');
+    if (btn) {
+        if (btn.disabled) return; // Prevent double-click
+        btn.disabled = true;
+        btn.innerHTML = `<span class="animate-spin inline-block mr-2">⚙️</span> Processing...`;
+    }
+
+    try {
+        // Ensure metadata is present (important after regeneration)
+        if (!appState.metadata) {
+            btn.innerHTML = `<span class="animate-spin inline-block mr-2">⚙️</span> Analyzing Script...`;
+            appState.metadata = await extractMetadata(scriptText, appState.projectId);
+        }
+
+        btn.innerHTML = `<span class="animate-spin inline-block mr-2">⚙️</span> Compiling Production Plan...`;
+        const res = await fetch('/api/generate/production', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                idea: appState.idea || "Custom User Script",
+                script: scriptText,
+                tone: appState.tone,
+                intensity: appState.intensity,
+                metadata: appState.metadata || {},
+                project_id: appState.projectId
+            })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || "Failed to generate plan");
+
+        appState.productionPlan = data.production;
+        renderProduction();
+        showToast("Success", "Production plan generated successfully.", false);
+
+    } catch (e) {
+        console.error("Direct Prod error", e);
+        showToast("Error", "Failed to generate: " + e.message, true);
+        document.getElementById('production-out').innerHTML = `<div class="flex flex-col items-center justify-center h-full text-red-400 p-10"><span class="text-4xl mb-3">⚠️</span><p class="text-sm">Production plan failed: ${e.message}. Try again.</p></div>`;
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `🎬 Direct Generate from Editor`;
+        }
+    }
 }
 
 async function generateProduction() {
@@ -414,7 +934,14 @@ async function generateProduction() {
         const res = await fetch('/api/generate/production', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idea: appState.idea, script: appState.screenplay, tone: appState.tone, intensity: appState.intensity, metadata: appState.metadata })
+            body: JSON.stringify({
+                idea: appState.idea,
+                script: appState.screenplay,
+                tone: appState.tone,
+                intensity: appState.intensity,
+                metadata: appState.metadata,
+                project_id: appState.projectId
+            })
         });
         const data = await res.json();
         if (res.ok) {
@@ -465,11 +992,18 @@ function renderSound() {
         <div class="flex items-start gap-4 p-4 border-l-2 border-cinematic-neon bg-gray-900/30 rounded">
             <div class="text-cinematic-neon text-2xl">🔊</div>
             <div class="w-full">
-                <h4 class="font-bold text-white uppercase tracking-wider text-sm mb-2">Scene ${i + 1} Audio Blueprint</h4>
+                <h4 class="font-bold text-white uppercase tracking-wider text-sm mb-2">${scene.scene_heading || `Scene ${i + 1} Audio Blueprint`}</h4>
                 <div class="grid grid-cols-2 gap-4 mt-2">
-                    <div><span class="text-xs text-gray-500 uppercase">Ambiance</span><p class="text-sm text-gray-300 font-light">${scene.ambiance || ''}</p></div>
-                    <div><span class="text-xs text-gray-500 uppercase">Score Style</span><p class="text-sm text-gray-300 font-light">${scene.score_style || ''}</p></div>
-                    <div class="col-span-2"><span class="text-xs text-gray-500 uppercase">SFX</span><p class="text-sm text-cinematic-accent font-mono mt-1">${(scene.sfx_list || []).join(' • ')}</p></div>
+                    <div><span class="text-xs text-gray-500 uppercase">Ambiance</span><p class="text-sm text-gray-300 font-light">${scene.ambiance || 'N/A'}</p></div>
+                    <div><span class="text-xs text-gray-500 uppercase">Score Style</span><p class="text-sm text-gray-300 font-light">${scene.score_style || 'N/A'}</p></div>
+                    <div class="col-span-2">
+                        <span class="text-xs text-gray-500 uppercase">SFX</span>
+                        <p class="text-sm text-cinematic-accent font-mono mt-1">${(scene.sfx_list || []).join(' • ') || 'None'}</p>
+                    </div>
+                    <div class="col-span-2 mt-2">
+                        <span class="text-xs text-gray-500 uppercase">Dramatic Silence Moments</span>
+                        <p class="text-sm text-gray-400 italic">${scene.silence_moments || 'None identified.'}</p>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -520,8 +1054,16 @@ function renderProduction() {
 function handleTabSwitch(targetId) {
     if (targetId === 'characters-out' && appState.characters) renderCharacters();
     if (targetId === 'sound-out' && appState.soundPlan) renderSound();
-    if (targetId === 'production-out' && appState.productionPlan) renderProduction();
-    if (targetId === 'tab-pitch') updatePitchModeUI();
+    if (targetId === 'production-out') {
+        if (appState.productionPlan) {
+            renderProduction();
+        }
+        // Don't auto-trigger production — let the user click the button
+    }
+    // Guard against missing pitch DOM elements
+    if (targetId === 'tab-pitch' && document.getElementById('pitch-title')) {
+        updatePitchModeUI();
+    }
 }
 
 // 6. PITCH MODE UI
@@ -683,17 +1225,6 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
-        // 2. Staggered Card Animation (How it Works / Output Tabs)
-        gsap.from(".grid > div", {
-            scrollTrigger: {
-                trigger: ".grid",
-                start: "top 75%",
-            },
-            y: 30,
-            opacity: 0,
-            duration: 0.8,
-            stagger: 0.2, // Delays each card slightly for a wave effect
-            ease: "power2.out"
-        });
+        // Removed Staggered Card Animation to prevent glitching/lagging on Pipeline cards
     }
 });

@@ -398,6 +398,7 @@
         }
 
         // Streaming AI Fetch Logic
+        let isGeneratingScript = false;
         const generateBtn = document.getElementById('generate-btn');
         const promptInput = document.getElementById('prompt-input');
         const toneSelect = document.getElementById('tone-select');
@@ -406,12 +407,14 @@
         const loadingIndicator = document.getElementById('loading-indicator');
 
         generateBtn.addEventListener('click', async () => {
+            if (isGeneratingScript) return;
             const idea = promptInput.value.trim();
             if (!idea) {
                 alert("Please enter a film idea first.");
                 return;
             }
 
+            isGeneratingScript = true;
             // UI feedback
             generateBtn.disabled = true;
             generateBtn.classList.add('opacity-50');
@@ -431,8 +434,8 @@
                 });
 
                 if (!response.ok) {
-                    const errData = await response.json();
-                    editor.value = `Error: ${JSON.stringify(errData)}`;
+                    const errData = await response.json().catch(() => ({ error: "Unknown server error" }));
+                    editor.value = `Error: ${errData.error || JSON.stringify(errData)}`;
                     throw new Error("API Error");
                 }
 
@@ -479,7 +482,11 @@
 
             } catch (error) {
                 console.error("Streaming failed:", error);
+                if (editor.value.length < 50) {
+                    editor.value = "Streaming failed. Please check the console or try again.";
+                }
             } finally {
+                isGeneratingScript = false;
                 generateBtn.disabled = false;
                 generateBtn.classList.remove('opacity-50');
                 loadingIndicator.classList.add('hidden');

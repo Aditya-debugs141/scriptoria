@@ -1,11 +1,23 @@
 import json
-import requests
+import re
 import os
+from services import groq_request_with_retry
+
+
+def _truncate_script(script, max_chars=8000):
+    """Smart truncation: keeps beginning + end of script for context."""
+    if not script or len(script) <= max_chars:
+        return script
+    head = max_chars * 3 // 4
+    tail = max_chars - head
+    return script[:head] + "\n\n[... MIDDLE SECTION OMITTED FOR BREVITY ...]\n\n" + script[-tail:]
+
 
 def generate_production(idea, script, tone, intensity, metadata):
     """Generates a structured JSON string of a production plan based on scene complexity."""
     
     groq_api_key = os.environ.get("GROQ_API_KEY", "")
+    truncated = _truncate_script(script)
     
     prompt = f"""You are the Line Producer for a new film.
 Create a production breakdown specifically analyzing the scenes, locations, and characters in the MASTER SCREENPLAY below.
@@ -18,7 +30,7 @@ EXTRACTED SCRIPT METADATA:
 {json.dumps(metadata, indent=2)}
 
 MASTER SCREENPLAY TO ANALYZE:
-{script}
+{truncated}
 
 Return the data STRICTLY as a raw JSON object matching the format below. DO NOT wrap in markdown code blocks. DO NOT add any other text.
 Rules:
@@ -37,27 +49,22 @@ Format Example:
 }}
 """
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {groq_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": "You output only valid JSON objects."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.6,
-                "max_tokens": 1024
-            },
-            timeout=20
-        )
-        response.raise_for_status()
-        raw = response.json()["choices"][0]["message"]["content"]
-        raw = raw.replace("```json", "").replace("```", "").strip()
+        raw = groq_request_with_retry({
+            "model": "llama-3.3-70b-versatile",
+            "response_format": {"type": "json_object"},
+            "messages": [
+                {"role": "system", "content": "You output only valid JSON objects."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.6,
+            "max_tokens": 2048
+        }, groq_api_key)
+        
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if match:
+            raw = match.group(0)
+            
         return json.loads(raw)
     except Exception as e:
-        print("Production Gen Error:", e)
+        print("Production Gen Error:", e, type(e))
         return {}

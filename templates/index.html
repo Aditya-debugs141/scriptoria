@@ -48,16 +48,87 @@
         <div class="max-w-7xl mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-serif font-bold tracking-widest uppercase">Scriptoria<span
                     class="text-cinematic-neon">.</span></h1>
-            <div class="hidden md:flex space-x-6 text-sm font-medium text-gray-300">
-                <a href="#hero" class="hover:text-white transition">Home</a>
-                <a href="#demo" onclick="scrollToDemo()" class="hover:text-white transition cursor-pointer">Product
-                    Demo</a>
-                <a href="/dashboard"
-                    class="text-cinematic-neon hover:text-white transition font-bold shadow-[0_0_15px_rgba(0,240,255,0.2)] px-4 py-2 rounded-lg border border-cinematic-neon/30 bg-cinematic-neon/5 hover:bg-cinematic-neon/20">Studio
-                    Log In</a>
+            <div class="flex items-center gap-4">
+                <div class="hidden md:flex space-x-6 text-sm font-medium text-gray-300">
+                    <a href="#hero" class="text-white hover:text-cinematic-neon transition text-base relative group">
+                        Home
+                        <span
+                            class="absolute -bottom-1 left-0 w-0 h-0.5 bg-cinematic-neon transition-all group-hover:w-full"></span>
+                    </a>
+                </div>
+                <!-- Guest Actions -->
+                <div id="nav-guest-info" class="flex items-center gap-4">
+                    <a href="/login" class="text-sm font-medium text-gray-400 hover:text-white transition">Sign In</a>
+                    <a href="/login"
+                        class="px-5 py-2 rounded-lg bg-gray-800 text-white text-xs font-bold uppercase tracking-widest hover:bg-cinematic-accent transition">Get
+                        Started</a>
+                </div>
+
+                <!-- User info (shown when logged in) -->
+                <div id="nav-user-info" class="hidden items-center gap-3">
+                    <a href="/dashboard"
+                        class="mr-4 px-4 py-1.5 rounded-full border border-cinematic-neon text-cinematic-neon text-xs font-bold hover:bg-cinematic-neon hover:text-black transition">Open
+                        Studio</a>
+                    <button onclick="toggleSidebar()"
+                        class="text-gray-400 hover:text-cinematic-neon transition p-1.5 rounded-lg hover:bg-gray-800"
+                        title="Toggle Sidebar">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    <span id="nav-user-name" class="text-xs text-gray-400 font-mono uppercase tracking-wider"></span>
+                    <div
+                        class="w-8 h-8 rounded-full bg-gradient-to-br from-cinematic-accent to-cinematic-neon flex items-center justify-center text-xs font-bold text-black">
+                        <span id="nav-user-initial"></span>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
+
+    <!-- SaaS Sidebar (Auth Users) -->
+    <aside id="sidebar"
+        class="fixed top-0 left-0 h-full w-72 bg-[#0c0c10]/95 backdrop-blur-xl border-r border-gray-800/60 z-40 transform -translate-x-full transition-transform duration-300 ease-in-out pt-[65px]">
+        <div class="flex flex-col h-full">
+            <!-- User Greeting -->
+            <div class="px-5 py-5 border-b border-gray-800/50">
+                <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-1">Welcome back</p>
+                <h3 id="sidebar-user-name" class="text-base font-bold text-white truncate"></h3>
+            </div>
+
+            <!-- New Screenplay Button -->
+            <div class="px-4 py-4">
+                <button onclick="startNewScreenplay()"
+                    class="w-full px-4 py-2.5 bg-gradient-to-r from-cinematic-accent to-cinematic-neon text-black font-bold text-xs uppercase tracking-widest rounded-lg hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all hover:-translate-y-0.5">
+                    ✨ New Screenplay
+                </button>
+            </div>
+
+            <!-- History List -->
+            <div class="flex-1 overflow-y-auto px-3">
+                <p class="text-[10px] text-gray-500 uppercase tracking-[0.2em] px-2 mb-3">History</p>
+                <div id="sidebar-history-loading" class="text-center py-6">
+                    <div class="w-5 h-5 rounded-full border-t-2 border-cinematic-neon animate-spin mx-auto mb-2"></div>
+                    <p class="text-xs text-gray-500">Loading...</p>
+                </div>
+                <div id="sidebar-history-empty" class="hidden text-center text-xs text-gray-600 py-6">No screenplays
+                    yet.</div>
+                <div id="sidebar-history-list" class="space-y-1"></div>
+            </div>
+
+            <!-- Logout -->
+            <div class="px-4 py-4 border-t border-gray-800/50">
+                <button onclick="logout()"
+                    class="w-full px-4 py-2 text-xs text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition uppercase tracking-wider font-medium">
+                    ← Sign Out
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Sidebar overlay -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30 hidden" onclick="toggleSidebar()"></div>
 
     <!-- Hero Section -->
     <section id="hero" class="relative min-h-screen flex flex-col items-center justify-center overflow-hidden pt-20">
@@ -66,14 +137,6 @@
         <div class="absolute inset-0 z-0 bg-gradient-to-b from-transparent to-cinematic-dark"></div>
 
         <div class="relative z-10 text-center px-6 max-w-4xl mx-auto mt-16">
-            <div
-                class="inline-block mb-6 px-4 py-1.5 rounded-full border border-cinematic-accent/40 bg-cinematic-accent/10 backdrop-blur-md">
-                <span
-                    class="text-cinematic-neon text-xs md:text-sm font-medium tracking-wider uppercase flex items-center justify-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-cinematic-neon animate-pulse"></span>
-                    Powered by Gemini + IBM AI
-                </span>
-            </div>
 
             <h1
                 class="text-5xl md:text-7xl lg:text-8xl font-serif font-bold tracking-tight mb-6 leading-[1.1] drop-shadow-2xl">
@@ -90,63 +153,54 @@
             </p>
 
             <div class="flex flex-col sm:flex-row gap-6 justify-center items-center">
-                <button onclick="scrollToDemo()"
+                <button onclick="handleStartCreating()"
                     class="w-full sm:w-auto px-8 py-4 rounded-lg bg-cinematic-neon text-cinematic-dark font-bold tracking-wide hover:bg-white hover:shadow-[0_0_40px_rgba(0,240,255,0.7)] transition-all duration-300 transform hover:-translate-y-1">
                     🚀 Start Creating
-                </button>
-                <button onclick="openVideoModal()"
-                    class="w-full sm:w-auto px-8 py-4 rounded-lg border border-gray-600 bg-cinematic-panel backdrop-blur-sm text-white font-medium hover:border-cinematic-neon hover:text-cinematic-neon transition-all duration-300">
-                    🎬 Watch Demo
                 </button>
             </div>
         </div>
 
-        <!-- Scroll Indicator -->
-        <div
-            class="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce flex flex-col items-center opacity-60">
-            <span class="text-xs uppercase tracking-widest text-gray-400 mb-2">Scroll to explore</span>
-            <svg class="w-6 h-6 text-cinematic-neon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3">
-                </path>
-            </svg>
-        </div>
+
     </section>
 
     <!-- How It Works Timeline -->
     <section id="how-it-works" class="py-24 bg-cinematic-dark border-y border-gray-800/50">
         <div class="max-w-7xl mx-auto px-6">
-            <h2 class="text-4xl md:text-5xl font-serif font-bold text-center mb-16">The Pre-Production <span
+            <h2 class="text-4xl md:text-5xl font-serif font-bold text-center mb-16 text-white">The Pre-Production <span
                     class="text-cinematic-accent">Pipeline</span></h2>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <!-- Step 1 -->
                 <div
-                    class="bg-cinematic-panel p-8 rounded-2xl border border-gray-800 hover:border-cinematic-neon/50 transition duration-500 overflow-hidden relative group">
+                    class="bg-cinematic-panel p-8 rounded-2xl border border-gray-700 hover:border-cinematic-neon shadow-lg transition duration-500 transform hover:-translate-y-2 overflow-hidden relative group">
                     <div
-                        class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-6xl font-serif">
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition text-6xl font-serif text-cinematic-neon">
                         1</div>
-                    <h3 class="text-xl font-bold mb-3 text-cinematic-neon">Idea Input</h3>
-                    <p class="text-gray-400 font-light leading-relaxed">Provide a single logline, premise, or creative
+                    <h3 class="text-2xl font-bold mb-3 text-white group-hover:text-cinematic-neon transition-colors">
+                        Idea Input</h3>
+                    <p class="text-gray-300 font-light leading-relaxed">Provide a single logline, premise, or creative
                         spark to ignite the AI engine.</p>
                 </div>
                 <!-- Step 2 -->
                 <div
-                    class="bg-cinematic-panel p-8 rounded-2xl border border-gray-800 hover:border-cinematic-accent/50 transition duration-500 overflow-hidden relative group">
+                    class="bg-cinematic-panel p-8 rounded-2xl border border-gray-700 hover:border-cinematic-accent shadow-lg transition duration-500 transform hover:-translate-y-2 overflow-hidden relative group">
                     <div
-                        class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-6xl font-serif">
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition text-6xl font-serif text-cinematic-accent">
                         2</div>
-                    <h3 class="text-xl font-bold mb-3 text-cinematic-accent">Autonomous Generation</h3>
-                    <p class="text-gray-400 font-light leading-relaxed">The AI cascades through Screenwriting, Character
+                    <h3 class="text-2xl font-bold mb-3 text-white group-hover:text-cinematic-accent transition-colors">
+                        Autonomous Generation</h3>
+                    <p class="text-gray-300 font-light leading-relaxed">The AI cascades through Screenwriting, Character
                         Intelligence, and Sound Design.</p>
                 </div>
                 <!-- Step 3 -->
                 <div
-                    class="bg-cinematic-panel p-8 rounded-2xl border border-gray-800 hover:border-cinematic-neon/50 transition duration-500 overflow-hidden relative group">
+                    class="bg-cinematic-panel p-8 rounded-2xl border border-gray-700 hover:border-cinematic-neon shadow-lg transition duration-500 transform hover:-translate-y-2 overflow-hidden relative group">
                     <div
-                        class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition text-6xl font-serif">
+                        class="absolute top-0 right-0 p-4 opacity-20 group-hover:opacity-40 transition text-6xl font-serif text-cinematic-neon">
                         3</div>
-                    <h3 class="text-xl font-bold mb-3 text-white">Hollywood Export</h3>
-                    <p class="text-gray-400 font-light leading-relaxed">Download your finished Courier-formatted PDF
+                    <h3 class="text-2xl font-bold mb-3 text-white group-hover:text-cinematic-neon transition-colors">
+                        Hollywood Export</h3>
+                    <p class="text-gray-300 font-light leading-relaxed">Download your finished Courier-formatted PDF
                         screenplay directly to your desktop.</p>
                 </div>
             </div>
@@ -206,6 +260,18 @@
                                 <input type="range" id="intensitySlider" min="1" max="100" value="85"
                                     class="w-full appearance-none bg-gray-700 h-1.5 rounded-full outline-none transition-all duration-300">
                             </div>
+
+                            <div class="mt-6">
+                                <label class="block text-xs text-gray-500 mb-2 uppercase tracking-wide">Script
+                                    Length</label>
+                                <select id="lengthSelect"
+                                    class="w-full bg-[#0a0a0c] border border-gray-700 text-white text-sm rounded-lg focus:ring-cinematic-neon focus:border-cinematic-neon block p-2.5 outline-none transition cursor-pointer">
+                                    <option value="Short">Short</option>
+                                    <option value="Medium" selected>Medium</option>
+                                    <option value="Long">Long</option>
+                                    <option value="None">Model Decides</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
 
@@ -226,7 +292,7 @@
                     <div class="flex items-center justify-between pb-4 border-b border-gray-800 relative z-[100] gap-4">
                         <!-- Left side: Scrollable Tabs -->
                         <div class="flex overflow-x-auto gap-4 custom-scrollbar pb-2 flex-grow">
-                            <button id="regenerate-screenplay-btn"
+                            <button id="screenplay-tab-btn"
                                 class="tab-btn active px-6 py-2 rounded-full border border-cinematic-neon text-cinematic-neon bg-cinematic-neon/5 text-sm font-medium whitespace-nowrap transition flex items-center gap-2"
                                 data-target="screenplay-out">
                                 <span>📄</span> <span id="screenplay-tab-text">Screenplay</span>
@@ -280,12 +346,29 @@
                                 <span class="text-4xl mb-4 opacity-50">📄</span>
                                 <p class="text-sm font-light opacity-50 mb-6">Screenplay output will appear here.</p>
                                 <button id="generate-master-btn" onclick="generateStreamingScript()"
-                                    class="px-8 py-3 rounded-full bg-gradient-to-r from-[#00F0FF] to-[#4B00D1] text-white text-sm font-bold tracking-wide hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all transform hover:-translate-y-0.5">
+                                    class="px-8 py-3 rounded-full bg-gradient-to-r from-[#00F0FF] to-[#4B00D1] text-white text-sm font-bold tracking-wide hover:shadow-[0_0_20px_rgba(0,240,255,0.4)] transition-all transform hover:-translate-y-0.5 mb-4">
                                     ✨ Generate Master Screenplay
                                 </button>
                             </div>
-                            <pre id="screenplay-text"
-                                class="absolute inset-0 w-full h-full p-8 font-mono text-sm text-gray-300 whitespace-pre-wrap overflow-y-auto custom-scrollbar z-0 hidden"></pre>
+                            <!-- Added z-index relative container for text and buttons -->
+                            <div class="absolute inset-0 w-full h-full flex flex-col z-0 hidden"
+                                id="screenplay-container">
+                                <pre id="screenplay-text"
+                                    class="flex-grow p-8 font-mono text-sm text-gray-300 whitespace-pre-wrap overflow-y-auto custom-scrollbar"></pre>
+
+                                <!-- Regenerate and History Buttons -->
+                                <div
+                                    class="flex-shrink-0 p-4 border-t border-gray-800 bg-[#0a0a0c]/80 backdrop-blur-sm flex justify-center gap-4">
+                                    <button id="regenerate-btn-ui" onclick="regenerateScreenplay()"
+                                        class="px-6 py-2 rounded-full border border-cinematic-neon text-cinematic-neon hover:bg-cinematic-neon hover:text-black transition flex items-center gap-2 text-sm font-bold shadow-[0_0_10px_rgba(0,240,255,0.2)]">
+                                        <span>↻</span> Regenerate Screenplay
+                                    </button>
+                                    <button onclick="openHistoryModal()"
+                                        class="px-6 py-2 rounded-full border border-gray-600 text-gray-300 hover:border-white hover:text-white transition flex items-center gap-2 text-sm font-bold">
+                                        <span>📜</span> View Past Screenplays
+                                    </button>
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Characters Content -->
@@ -308,10 +391,15 @@
 
                         <!-- Production Content -->
                         <div id="production-out" class="tab-content h-full w-full">
-                            <div
-                                class="flex flex-col items-center justify-center h-full text-gray-500 opacity-50 absolute inset-0">
-                                <span class="text-4xl mb-4">🎬</span>
-                                <p class="text-sm font-light">Visual breakdown (runtime, cast sizes) will load here.</p>
+                            <div id="production-placeholder"
+                                class="flex flex-col items-center justify-center h-full text-gray-500 absolute inset-0 z-10 transition-opacity duration-300">
+                                <span class="text-4xl mb-4 opacity-50">🎬</span>
+                                <p class="text-sm font-light opacity-50 mb-6">Visual breakdown (runtime, cast sizes)
+                                    will load here.</p>
+                                <button id="direct-production-btn" onclick="generateDirectProduction()"
+                                    class="px-6 py-2 rounded-full border border-gray-600 bg-gray-800 text-white text-sm hover:border-cinematic-accent hover:bg-cinematic-accent/20 transition-all pointer-events-auto">
+                                    🎬 Direct Generate from Editor
+                                </button>
                             </div>
                         </div>
 
@@ -336,6 +424,37 @@
                     <span class="text-5xl mb-4 block">🎬</span>
                     <p class="font-mono text-sm">Demo Video Player Placeholder</p>
                     <p class="text-xs mt-2 text-gray-600">(Add final mp4 source here)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="historyModal"
+        class="fixed inset-0 z-[100] hidden bg-black/90 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300">
+        <div class="relative w-full max-w-3xl px-4">
+            <button onclick="closeHistoryModal()"
+                class="absolute -top-12 right-4 text-white hover:text-cinematic-neon text-xl font-bold transition">✕
+                Close</button>
+            <div
+                class="bg-gray-900 border border-gray-700 rounded-xl overflow-hidden shadow-[0_0_50px_rgba(0,240,255,0.2)] flex flex-col max-h-[80vh]">
+                <div class="p-6 border-b border-gray-800 bg-[#0a0a0c]">
+                    <h2 class="text-2xl font-serif font-bold text-white flex items-center gap-2">
+                        <span class="text-cinematic-neon">📜</span> Project History
+                    </h2>
+                    <p class="text-sm text-gray-500 mt-1">Select a past generation to load into the editor.</p>
+                </div>
+                <!-- Status specific -->
+                <div id="history-loading" class="p-12 text-center text-gray-500 text-sm hidden">
+                    <div class="w-8 h-8 mx-auto rounded-full border-t-2 border-cinematic-neon animate-spin mb-4"></div>
+                    Fetching neural archives...
+                </div>
+                <div id="history-empty" class="p-12 text-center text-gray-500 text-sm hidden">
+                    No past screenplays found in the archives.
+                </div>
+                <!-- Content list -->
+                <div id="history-list" class="flex-grow overflow-y-auto custom-scrollbar p-6 space-y-4">
+                    <!-- History cards injected here via main.js -->
                 </div>
             </div>
         </div>

@@ -1,11 +1,22 @@
 import json
-import requests
 import os
+from services import groq_request_with_retry
+
+
+def _truncate_script(script, max_chars=8000):
+    """Smart truncation: keeps beginning + end of script for context."""
+    if not script or len(script) <= max_chars:
+        return script
+    head = max_chars * 3 // 4
+    tail = max_chars - head
+    return script[:head] + "\n\n[... MIDDLE SECTION OMITTED FOR BREVITY ...]\n\n" + script[-tail:]
+
 
 def generate_characters(idea, script, tone, intensity, metadata):
     """Generates a structured JSON string of character profiles dynamically based on the screenplay."""
     
     groq_api_key = os.environ.get("GROQ_API_KEY", "")
+    truncated = _truncate_script(script)
     
     prompt = f"""You are a psychological character architect for a film.
 Analyze the following MASTER SCREENPLAY and extract the Protagonist, Antagonist (if applicable), and key Supporting Roles.
@@ -18,7 +29,7 @@ EXTRACTED SCRIPT METADATA:
 {json.dumps(metadata, indent=2)}
 
 MASTER SCREENPLAY TO ANALYZE:
-{script}
+{truncated}
 
 Return the data STRICTLY as a raw JSON array. DO NOT wrap in markdown code blocks. DO NOT add any other text.
 Character names and events MUST perfectly match the Master Screenplay.
@@ -37,25 +48,15 @@ Format Example:
 ]
 """
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {groq_api_key}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "llama-3.3-70b-versatile",
-                "messages": [
-                    {"role": "system", "content": "You output only valid JSON arrays."},
-                    {"role": "user", "content": prompt}
-                ],
-                "temperature": 0.8,
-                "max_tokens": 2048
-            },
-            timeout=20
-        )
-        response.raise_for_status()
-        raw = response.json()["choices"][0]["message"]["content"]
+        raw = groq_request_with_retry({
+            "model": "llama-3.1-8b-instant",
+            "messages": [
+                {"role": "system", "content": "You output only valid JSON arrays."},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.8,
+            "max_tokens": 2048
+        }, groq_api_key)
         raw = raw.replace("```json", "").replace("```", "").strip()
         return json.loads(raw)
     except Exception as e:

@@ -1,99 +1,157 @@
-# SCRIPTORIA: AI Pre-Production Studio
+# Scriptoria 🎬
 
-![Scriptoria Header](https://via.placeholder.com/1200x400/0a0a0c/4B00D1?text=SCRIPTORIA)
+> **AI-Powered Film Pre-Production Platform** — Transform a single idea into a complete production package in real time.
 
-**Scriptoria** is an advanced, AI-powered pre-production studio. It leverages the blazing speed of the **Groq Llama 3 API** to generate not just screenplays, but complete, structured production plans. Designed for filmmakers, writers, and producers, Scriptoria streamlines the creative phase from initial concept to a fully-fleshed-out director's packet.
+Scriptoria takes a raw film concept and generates a full, industry-formatted screenplay, character profiles, sound design architecture, and a production breakdown blueprint — all powered by the Groq LLM API running `llama-3.3-70b-versatile`.
 
-## 🚀 Features
+---
 
-- **⚡ Blazing Fast Screenplay Generation**: Stream your script directly to the viewport token-by-token using Groq.
-- **🎨 Cinematic Tone Engine**: Toggle between distinct stylistic tones like *A24 Indie*, *Summer Blockbuster*, or *Classic Sitcom*.
-- **🔥 Intensity Slider**: Dynamically adjust the pacing, conflict, and emotional stakes of the generated content (from 0% to 100%).
-- **🧠 Character Lab**: Automatically extract deep psychological profiles, motivations, and arcs for major characters.
-- **🎵 Sound Architect**: Generate layered audio design breakdowns, ambiance suggestions, and Foley requirements per scene.
-- **📊 Production Planner**: Estimate budgets, map out set complexity, list key props, and estimate shooting days.
-- **💼 Exec Pitch Mode**: Instantly flip your script into a high-level executive pitch deck view.
-- **🖨️ Multi-Format PDF Exports**: Seamlessly download specific components (`Screenplay Only`, `Production Plan Only`) or compile a massive `Full Project` packet. No page reloads!
+## ✨ Features
+
+- **Screenplay Generator** — Streams a formatted Fountain-style script directly to the browser in real time using Server-Sent Events (SSE)
+- **Character Profiles** — Generates structured character backstories, motivations, and dramatic arcs
+- **Sound Design Plan** — Creates a scene-by-scene soundscape and score recommendation
+- **Production Breakdown** — Estimates shoot days, key locations, props, and scene complexity
+- **PDF Export** — Download the full production pack (screenplay + all components) as a professionally formatted PDF
+- **User Auth** — Register/Login with bcrypt-hashed passwords and Flask session management
+- **Screenplay History** — All generated projects are saved and accessible per user
+- **Rate Limiting** — Flask-Limiter protects all AI endpoints from abuse
+- **Works Offline** — Fallback mock data mode if no API key is configured
+
+---
 
 ## 🛠️ Tech Stack
 
-- **Backend**: Python 3.10+, Flask, FPDF2 (PDF generation), Groq API, Pydantic.
-- **Frontend**: Vanilla JavaScript (ES6+), Tailwind CSS (CDN), GSAP (Cinematic UI Animations).
+| Layer | Technology |
+|---|---|
+| Backend | Python 3, Flask |
+| AI Provider | Groq API (`llama-3.3-70b-versatile`) |
+| Database | SQLite via SQLAlchemy |
+| Auth | Werkzeug password hashing + Flask sessions |
+| PDF Export | FPDF |
+| Validation | Pydantic |
+| Rate Limiting | Flask-Limiter |
+| Frontend | Vanilla HTML/CSS/JS (Jinja templates) |
 
-## 📥 Installation
+---
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-username/scriptoria.git
-   cd scriptoria
-   ```
+## 🚀 Local Setup
 
-2. **Set up a virtual environment (Optional but Recommended):**
-   ```bash
-   python -m venv venv
-   # Windows
-   .\venv\Scripts\activate
-   # macOS/Linux
-   source venv/bin/activate
-   ```
+### 1. Prerequisites
+- Python 3.10+
+- A free [Groq API key](https://console.groq.com/)
 
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
+### 2. Clone the repository
+```bash
+git clone https://github.com/Aditya-debugs141/scriptoria.git
+cd scriptoria
+```
 
-4. **Environment Variables:**
-   Create a `.env` file in the root directory and add your Groq API key:
-   ```env
-   GROQ_API_KEY=your_groq_api_key_here
-   ```
+### 3. Create a virtual environment
+```bash
+python -m venv venv
 
-## 🎮 Usage
+# On Windows:
+venv\Scripts\activate
 
-Start the Flask development server:
+# On macOS/Linux:
+source venv/bin/activate
+```
+
+### 4. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 5. Configure environment variables
+```bash
+# Copy the example file
+cp .env.example .env
+```
+
+Now open `.env` and fill in your values:
+```env
+GROQ_API_KEY=your_groq_api_key_here
+FLASK_SECRET_KEY=generate_a_long_random_string_here
+FLASK_ENV=development
+```
+
+> **Generate a secure secret key** by running:
+> ```bash
+> python -c "import secrets; print(secrets.token_hex(32))"
+> ```
+
+### 6. Run the development server
 ```bash
 python app.py
 ```
 
-Open your browser and navigate to `http://localhost:5000`.
+The app will be available at **http://localhost:5000**
 
-1. Click **Start Creating** to enter the Live Pre-Production Studio.
-2. Enter a logline or concept (e.g., *"A gritty detective uncovers a conspiracy in a neon-lit cyberpunk city."*).
-3. Select your **Tone Engine** setting and dial in the **Cinematic Intensity**.
-4. Hit **Generate Master Screenplay**.
-5. Once the script finishes streaming, watch as the *Character Lab*, *Sound Architect*, and *Planner* automatically build out your pre-production environment.
-6. Export your final packaged project via the **Export PDF** dropdown!
+---
 
-## 📂 Project Structure
+## 📁 Project Structure
 
-```text
-scriptoria/
-│
-├── app.py                   # Main Flask Application & API Routes
-├── requirements.txt         # Python dependencies
-├── .env                     # API Keys (Git Ignored)
-│
+```
+scriptopia/
+├── app.py                  # Main Flask application, all routes
+├── requirements.txt        # Python dependencies
+├── .env.example            # Environment variable template (safe to commit)
+├── .env                    # Your local secrets (NEVER commit this)
 ├── core/
-│   ├── config.py            # Environment configurations
-│   ├── models.py            # SQLAlchemy database models (if using persistence)
-│   ├── schemas.py           # Pydantic schemas for data validation
-│   └── prompts.py           # System prompts to tune the Groq LLM
-│
+│   ├── models.py           # SQLAlchemy database models (User, Project, Scene, Characters)
+│   └── schemas.py          # Pydantic request validation schemas
 ├── services/
-│   ├── script_engine.py      # Groq screenplay streaming logic
-│   ├── character_engine.py   # Character profile generation
-│   ├── sound_engine.py       # Audio design processing
-│   ├── production_engine.py  # Logistics and planning
-│   └── metadata_engine.py    # Automatic keyword/genre extraction
-│
+│   ├── script_engine.py    # Groq API: screenplay generation
+│   ├── character_engine.py # Groq API: character profile generation
+│   ├── sound_engine.py     # Groq API: sound design generation
+│   ├── production_engine.py# Groq API: production blueprint generation
+│   └── metadata_engine.py  # Groq API: metadata extraction
 ├── templates/
-│   └── index.html           # Main UI / Hub
-│
-└── static/
-    └── js/
-        └── main.js          # Client-side reactivity, GSAP animations, Export handlers
+│   ├── index.html          # Landing page
+│   ├── login.html          # Auth page
+│   └── dashboard.html      # Main app workspace
+└── static/                 # CSS, JS, assets
 ```
 
-## 📜 License
+---
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 🔒 Security Notes
+
+- **Never commit `.env`** — it is already in `.gitignore`
+- **Always use a strong, random `FLASK_SECRET_KEY`** — do not use a predictable string
+- Session cookies are `HttpOnly` and `SameSite=Lax`
+- All AI endpoints are rate-limited (20 requests/min for generation, 5/min for login)
+- Passwords are hashed using Werkzeug's `pbkdf2:sha256` algorithm
+
+---
+
+## 📦 Deployment
+
+For production, set:
+```env
+FLASK_ENV=production
+```
+
+This automatically enables `Secure` flag on session cookies (requires HTTPS).
+
+Use `gunicorn` as the production WSGI server:
+```bash
+pip install gunicorn
+gunicorn app:app --bind 0.0.0.0:5000
+```
+
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome. Please ensure you:
+1. Never commit `.env` or any real API keys
+2. Add your changes to a feature branch
+3. Write clear commit messages
+
+---
+
+## 📄 License
+
+MIT License

@@ -1,9 +1,14 @@
 /* Custom Scriptoria Styling */
+html {
+    scroll-behavior: smooth;
+}
+
 body {
     background-color: #0a0a0c;
     background-image: radial-gradient(circle at 50% 0%, #171722 0%, #0a0a0c 80%);
     background-attachment: fixed;
-    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* Subtle Film Grain Texture Overlay */
@@ -52,6 +57,15 @@ body::before {
 }
 
 /* Tab Active State Styling */
+.tab-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform, opacity;
+}
+
+.tab-btn:hover {
+    transform: translateY(-1px);
+}
+
 .tab-btn.active {
     border-color: #00F0FF;
     color: #00F0FF;
@@ -60,7 +74,7 @@ body::before {
 
 .tab-content {
     display: none;
-    animation: fadeIn 0.4s ease-in-out;
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tab-content.active {
@@ -84,6 +98,7 @@ body::before {
     background: linear-gradient(90deg, #00F0FF, #4B00D1, #00F0FF);
     background-size: 200% auto;
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: shine 2s linear infinite;
 }
@@ -92,4 +107,50 @@ body::before {
     to {
         background-position: 200% center;
     }
+}
+
+/* Buttery smooth button transitions */
+button {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* GPU-accelerated smooth transitions for modals */
+#historyModal,
+#videoModal {
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: opacity;
+}
+
+/* Smooth screenplay container reveal */
+#screenplay-container {
+    transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Toast smooth entry/exit */
+#toast {
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Smooth border glow on hover for interactive cards */
+.border-gray-800:hover {
+    transition: border-color 0.3s ease;
+}
+
+/* Prevent layout shift during streaming */
+#screenplay-text {
+    overflow-anchor: auto;
+}
+
+/* Sidebar transitions */
+#sidebar {
+    will-change: transform;
+}
+
+.sidebar-history-item {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-history-item.active {
+    background: rgba(0, 240, 255, 0.08);
+    border-left: 2px solid #00F0FF;
 }

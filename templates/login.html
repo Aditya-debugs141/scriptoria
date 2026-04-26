@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scriptoria | Login</title>
+    <meta name="description" content="Sign in to Scriptoria AI Pre-Production Studio.">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'cinematic-neon': '#00F0FF',
+                        'cinematic-accent': '#4B00D1',
+                        'cinematic-deep': '#0a0a0c'
+                    }
+                }
+            }
+        };
+    </script>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .auth-card {
+            background: rgba(15, 15, 20, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.1);
+            box-shadow: 0 0 80px rgba(0, 240, 255, 0.04), 0 20px 60px rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(16px);
+        }
+
+        .auth-input {
+            background: rgba(20, 20, 30, 0.8);
+            border: 1px solid rgba(55, 65, 81, 0.6);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .auth-input:focus {
+            border-color: #00F0FF;
+            box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.1);
+            outline: none;
+        }
+
+        .auth-btn {
+            background: linear-gradient(135deg, #4B00D1, #00F0FF);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .auth-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 32px rgba(0, 240, 255, 0.3);
+        }
+
+        .auth-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .toggle-link {
+            color: #00F0FF;
+            transition: opacity 0.2s;
+        }
+
+        .toggle-link:hover {
+            opacity: 0.8;
+        }
+
+        .error-msg {
+            color: #f87171;
+            font-size: 0.8rem;
+            min-height: 1.25rem;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex items-center justify-center px-4">
+
+    <div class="auth-card rounded-2xl p-8 sm:p-10 w-full max-w-md">
+        <!-- Logo -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold tracking-[0.12em] text-white">SCRIPTORIA<span
+                    class="text-cinematic-neon">.</span></h1>
+            <p class="text-xs text-gray-500 mt-1 uppercase tracking-widest">AI Pre-Production Studio</p>
+        </div>
+
+        <!-- Tab Toggle -->
+        <div class="flex mb-6 border-b border-gray-800">
+            <button id="tab-login" onclick="switchAuthTab('login')"
+                class="flex-1 pb-3 text-sm font-bold uppercase tracking-wider text-cinematic-neon border-b-2 border-cinematic-neon transition">Sign
+                In</button>
+            <button id="tab-register" onclick="switchAuthTab('register')"
+                class="flex-1 pb-3 text-sm font-bold uppercase tracking-wider text-gray-500 border-b-2 border-transparent transition">Create
+                Account</button>
+        </div>
+
+        <!-- Error Display -->
+        <div id="auth-error" class="error-msg mb-3 text-center"></div>
+
+        <!-- Login Form -->
+        <form id="login-form" onsubmit="handleLogin(event)" class="space-y-4">
+            <div>
+                <label class="block text-xs text-gray-400 uppercase tracking-wider mb-1.5">Email</label>
+                <input type="email" id="login-email" required autocomplete="email"
+                    class="auth-input w-full px-4 py-3 rounded-lg text-white text-sm" placeholder="you@example.com">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 uppercase tracking-wider mb-1.5">Password</label>
+                <input type="password" id="login-password" required autocomplete="current-password"
+                    class="auth-input w-full px-4 py-3 rounded-lg text-white text-sm" placeholder="••••••••">
+            </div>
+            <button type="submit" id="login-btn"
+                class="auth-btn w-full py-3 rounded-lg text-white font-bold text-sm uppercase tracking-wider mt-2">
+                Sign In
+            </button>
+            <p class="text-center text-xs text-gray-500 mt-4">
+                Don't have an account? <a href="#" onclick="switchAuthTab('register')"
+                    class="toggle-link font-semibold">Create one</a>
+            </p>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" onsubmit="handleRegister(event)" class="space-y-4 hidden">
+            <div>
+                <label class="block text-xs text-gray-400 uppercase tracking-wider mb-1.5">Display Name</label>
+                <input type="text" id="reg-name" required minlength="2" maxlength="50"
+                    class="auth-input w-full px-4 py-3 rounded-lg text-white text-sm" placeholder="Your Name">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 uppercase tracking-wider mb-1.5">Email</label>
+                <input type="email" id="reg-email" required autocomplete="email"
+                    class="auth-input w-full px-4 py-3 rounded-lg text-white text-sm" placeholder="you@example.com">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-400 uppercase tracking-wider mb-1.5">Password <span
+                        class="text-gray-600">(min. 6 characters)</span></label>
+                <input type="password" id="reg-password" required minlength="6" autocomplete="new-password"
+                    class="auth-input w-full px-4 py-3 rounded-lg text-white text-sm" placeholder="••••••••">
+            </div>
+            <button type="submit" id="reg-btn"
+                class="auth-btn w-full py-3 rounded-lg text-white font-bold text-sm uppercase tracking-wider mt-2">
+                Create Account
+            </button>
+            <p class="text-center text-xs text-gray-500 mt-4">
+                Already have an account? <a href="#" onclick="switchAuthTab('login')"
+                    class="toggle-link font-semibold">Sign in</a>
+            </p>
+        </form>
+    </div>
+
+    <script>
+        function switchAuthTab(tab) {
+            const loginForm = document.getElementById('login-form');
+            const regForm = document.getElementById('register-form');
+            const tabLogin = document.getElementById('tab-login');
+            const tabReg = document.getElementById('tab-register');
+            const errEl = document.getElementById('auth-error');
+            errEl.textContent = '';
+
+            if (tab === 'login') {
+                loginForm.classList.remove('hidden');
+                regForm.classList.add('hidden');
+                tabLogin.classList.add('text-cinematic-neon', 'border-cinematic-neon');
+                tabLogin.classList.remove('text-gray-500', 'border-transparent');
+                tabReg.classList.add('text-gray-500', 'border-transparent');
+                tabReg.classList.remove('text-cinematic-neon', 'border-cinematic-neon');
+            } else {
+                loginForm.classList.add('hidden');
+                regForm.classList.remove('hidden');
+                tabReg.classList.add('text-cinematic-neon', 'border-cinematic-neon');
+                tabReg.classList.remove('text-gray-500', 'border-transparent');
+                tabLogin.classList.add('text-gray-500', 'border-transparent');
+                tabLogin.classList.remove('text-cinematic-neon', 'border-cinematic-neon');
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('auth-error').textContent = msg;
+        }
+
+        function setLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (loading) {
+                btn.disabled = true;
+                btn.dataset.original = btn.textContent;
+                btn.innerHTML = '<span class="animate-pulse">Processing...</span>';
+            } else {
+                btn.disabled = false;
+                btn.textContent = btn.dataset.original || 'Submit';
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            showError('');
+            setLoading('login-btn', true);
+
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: document.getElementById('login-email').value.trim(),
+                        password: document.getElementById('login-password').value
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Login failed.');
+                window.location.href = '/';
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                setLoading('login-btn', false);
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            showError('');
+            setLoading('reg-btn', true);
+
+            try {
+                const res = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        display_name: document.getElementById('reg-name').value.trim(),
+                        email: document.getElementById('reg-email').value.trim(),
+                        password: document.getElementById('reg-password').value
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Registration failed.');
+                window.location.href = '/';
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                setLoading('reg-btn', false);
+            }
+        }
+
+        // If already logged in, redirect to main page
+        fetch('/api/me').then(res => {
+            if (res.ok) window.location.href = '/';
+        });
+    </script>
+</body>
+
+</html>
