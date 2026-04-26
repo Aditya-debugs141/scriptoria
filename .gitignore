@@ -4,3 +4,10 @@ __pycache__/
 *.pyc
 .DS_Store
 *.pdf
+*.png
+*.db
+instance/
+*.pen
+pdf_content.txt
+test_*.py
+read_pdf.py
